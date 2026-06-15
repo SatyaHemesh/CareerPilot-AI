@@ -1,0 +1,378 @@
+{% extends 'base.html' %}
+{% block title %}Analysis Report – CareerPilot AI{% endblock %}
+
+{% block extra_css %}
+<style>
+.section-tab { cursor:pointer; border-bottom:2px solid transparent; padding:.5rem 1rem; font-weight:500; color:#64748b; transition:all .2s; }
+.section-tab.active { border-bottom-color:#2563EB; color:#2563EB; }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+.q-card { border-left:3px solid #e2e8f0; padding:1rem; border-radius:0 8px 8px 0; margin-bottom:.75rem; background:#f8fafc; }
+.q-card.easy { border-left-color:#10B981; }
+.q-card.medium { border-left-color:#F59E0B; }
+.q-card.hard { border-left-color:#EF4444; }
+.week-card { border:1px solid #e2e8f0; border-radius:10px; padding:1rem; margin-bottom:.75rem; }
+.skill-tag-miss { background:#FEF2F2; color:#EF4444; border:1px solid #FECACA; font-size:.75rem; padding:.25rem .6rem; border-radius:20px; }
+.skill-tag-found { background:#F0FDF4; color:#10B981; border:1px solid #BBF7D0; font-size:.75rem; padding:.25rem .6rem; border-radius:20px; }
+.priority-high { color:#EF4444; font-weight:600; }
+.priority-medium { color:#F59E0B; font-weight:600; }
+.priority-low { color:#10B981; font-weight:600; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+    <!-- Header -->
+    <div class="d-flex align-items-start justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h4 class="fw-bold mb-1">
+                <i class="fas fa-chart-bar text-primary me-2"></i>Analysis Report
+            </h4>
+            <p class="text-muted mb-0">
+                {{ report.original_filename }} &nbsp;·&nbsp; 
+                <span class="badge bg-primary-soft text-primary">{{ report.target_role }}</span> &nbsp;·&nbsp;
+                {{ report.created_at[:10] if report.created_at else '' }}
+            </p>
+        </div>
+        <form action="{{ url_for('analysis.download_report', report_id=report.id) }}" method="GET" target="_blank" class="d-flex align-items-center gap-2">
+            <select name="template_style" class="form-select bg-light border-0 fw-medium" style="width: auto; cursor: pointer;">
+                <option value="modern">🎨 Modern Cards</option>
+                <option value="corporate">🏢 Corporate Standard</option>
+                <option value="minimalist">📝 Minimalist</option>
+            </select>
+            <button type="submit" class="btn btn-success px-4 fw-semibold">
+                <i class="fas fa-external-link-alt me-2"></i>Preview & Save
+            </button>
+        </form>
+    </div>
+
+    <!-- ATS Score Overview -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="cp-card text-center py-4">
+                {% set score = report.ats_score|int %}
+                <div class="ats-ring-wrap mx-auto mb-2">
+                    <svg viewBox="0 0 120 120" width="120" height="120">
+                        <circle cx="60" cy="60" r="50" fill="none" stroke="#e2e8f0" stroke-width="10"/>
+                        <circle cx="60" cy="60" r="50" fill="none" 
+                            stroke="{% if score >= 75 %}#10B981{% elif score >= 50 %}#F59E0B{% else %}#EF4444{% endif %}"
+                            stroke-width="10"
+                            stroke-dasharray="314"
+                            stroke-dashoffset="{{ 314 - (314 * score / 100)|int }}"
+                            stroke-linecap="round"
+                            transform="rotate(-90 60 60)"/>
+                    </svg>
+                    <div class="ats-ring-inner">
+                        <div class="fw-bold" style="font-size:1.8rem; line-height:1">{{ score }}</div>
+                        <div class="text-muted small">/100</div>
+                    </div>
+                </div>
+                <div class="fw-semibold">ATS Score</div>
+                <div class="small {% if score >= 75 %}text-success{% elif score >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                    {% if score >= 80 %}Excellent{% elif score >= 65 %}Good{% elif score >= 50 %}Fair{% else %}Needs Work{% endif %}
+                </div>
+            </div>
+        </div>
+        {% set cats = ats_data.get('category_scores', {}) %}
+        {% for key, label, icon in [
+            ('skills_match', 'Skills', 'code'),
+            ('education', 'Education', 'graduation-cap'),
+            ('projects', 'Projects', 'folder-open'),
+            ('experience', 'Experience', 'briefcase'),
+            ('formatting', 'Formatting', 'align-left')
+        ] %}
+        {% set cat = cats.get(key, {}) %}
+        {% set cscore = cat.get('score', 0) %}
+        <div class="col-md">
+            <div class="cp-card h-100 d-flex flex-column justify-content-center py-3 px-3">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="fas fa-{{ icon }} text-primary small"></i>
+                    <span class="small fw-medium">{{ label }}</span>
+                    <span class="ms-auto fw-bold {% if cscore >= 70 %}text-success{% elif cscore >= 45 %}text-warning{% else %}text-danger{% endif %}">
+                        {{ cscore }}%
+                    </span>
+                </div>
+                <div class="progress" style="height:6px; border-radius:3px">
+                    <div class="progress-bar {% if cscore >= 70 %}bg-success{% elif cscore >= 45 %}bg-warning{% else %}bg-danger{% endif %}"
+                         style="width:{{ cscore }}%"></div>
+                </div>
+                <div class="text-muted mt-1" style="font-size:.72rem">{{ cat.get('feedback', '')[:60] }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Tabbed Content -->
+    <div class="cp-card">
+        <div class="cp-card-header p-0 border-bottom">
+            <div class="d-flex overflow-auto px-3 pt-3 gap-2" id="reportTabs">
+                {% for tab_id, tab_label, tab_icon in [
+                    ('resume', 'Resume Analysis', 'user'),
+                    ('skills', 'Skill Gap', 'chart-network'),
+                    ('interview', 'Interview Prep', 'comments'),
+                    ('roadmap', '30/60/90 Plan', 'map'),
+                    ('recommendations', 'AI Advice', 'lightbulb'),
+                    ('ats', 'ATS Tips', 'robot'),
+                ] %}
+                <div class="section-tab {% if loop.first %}active{% endif %}" 
+                     onclick="switchTab('{{ tab_id }}')" id="tab-{{ tab_id }}">
+                    <i class="fas fa-{{ tab_icon }} me-1"></i>{{ tab_label }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="cp-card-body">
+
+            <!-- TAB: Resume Analysis -->
+            <div class="tab-panel active" id="panel-resume">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <h6 class="fw-semibold mb-3">Candidate Summary</h6>
+                        <p class="text-muted">{{ analysis_data.get('overall_impression', '') }}</p>
+                        <table class="table table-sm small">
+                            <tr><td class="text-muted fw-medium" style="width:30%">Name</td><td>{{ analysis_data.get('candidate_name','—') }}</td></tr>
+                            <tr><td class="text-muted fw-medium">Email</td><td>{{ analysis_data.get('email','—') }}</td></tr>
+                            <tr><td class="text-muted fw-medium">Phone</td><td>{{ analysis_data.get('phone','—') }}</td></tr>
+                        </table>
+                        <h6 class="fw-semibold mt-3 mb-2">Technical Skills</h6>
+                        <div class="d-flex flex-wrap gap-1">
+                        {% for s in analysis_data.get('skills',{}).get('technical',[]) %}
+                            <span class="skill-tag-found">{{ s }}</span>
+                        {% else %}
+                            <span class="text-muted small">Not detected</span>
+                        {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-semibold mb-2 text-success">✅ Strengths</h6>
+                        {% for s in analysis_data.get('strengths', []) %}
+                        <div class="small mb-1"><i class="fas fa-check text-success me-2"></i>{{ s }}</div>
+                        {% endfor %}
+                        <h6 class="fw-semibold mt-3 mb-2 text-warning">⚠️ Areas to Improve</h6>
+                        {% for w in analysis_data.get('weaknesses', []) %}
+                        <div class="small mb-1"><i class="fas fa-exclamation text-warning me-2"></i>{{ w }}</div>
+                        {% endfor %}
+                        <h6 class="fw-semibold mt-3 mb-2">Certifications</h6>
+                        {% for c in analysis_data.get('skills',{}).get('certifications',[]) %}
+                        <span class="badge bg-light text-dark border me-1 mb-1">{{ c }}</span>
+                        {% else %}
+                        <span class="text-muted small">None detected</span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% if analysis_data.get('projects') %}
+                <h6 class="fw-semibold mt-4 mb-2">Projects</h6>
+                <div class="row g-2">
+                {% for project in analysis_data.get('projects', []) %}
+                <div class="col-md-6">
+                    <div class="week-card">
+                        <div class="fw-medium small">{{ project.get('name','') }}</div>
+                        <div class="text-muted small mt-1">{{ project.get('description','') }}</div>
+                        <div class="mt-1">
+                        {% for t in project.get('technologies',[]) %}
+                            <span class="badge bg-primary-soft text-primary me-1" style="font-size:.7rem">{{ t }}</span>
+                        {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- TAB: Skill Gap -->
+            <div class="tab-panel" id="panel-skills">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <h6 class="fw-semibold mb-2">Missing Critical Skills</h6>
+                        <p class="text-muted small">{{ skill_gap_data.get('roadmap_summary','') }}</p>
+                        {% for skill in skill_gap_data.get('missing_critical_skills', []) %}
+                        <div class="d-flex align-items-start gap-2 mb-2 p-2 rounded" style="background:#FEF2F2">
+                            <i class="fas fa-times-circle text-danger mt-1 small"></i>
+                            <div>
+                                <div class="fw-medium small">{{ skill if skill is string else skill.get('skill', '') }}
+                                    <span class="ms-1 priority-{{ 'medium' if skill is string else skill.get('priority', 'medium')|lower }}">
+                                        [{{ skill.get('priority','') }}]
+                                    </span>
+                                </div>
+                                <div class="text-muted" style="font-size:.75rem">{{ skill.get('reason','') }}</div>
+                                <div class="text-muted" style="font-size:.72rem">
+                                    <i class="fas fa-clock me-1"></i>{{ skill.get('learning_time','') }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-semibold mb-2">Found Skills</h6>
+                        <div class="d-flex flex-wrap gap-1 mb-4">
+                        {% for s in skill_gap_data.get('found_skills', []) %}
+                            <span class="skill-tag-found">{{ s }}</span>
+                        {% endfor %}
+                        </div>
+                        <h6 class="fw-semibold mb-2">Recommended Additional Skills</h6>
+                        {% for skill in skill_gap_data.get('recommended_skills', [])[:5] %}
+                        <div class="d-flex align-items-start gap-2 mb-2 p-2 rounded" style="background:#F0FDF4">
+                            <i class="fas fa-plus-circle text-success mt-1 small"></i>
+                            <div>
+                                <div class="fw-medium small">{{ skill if skill is string else skill.get('skill', '') }}</div>
+                                <div class="text-muted" style="font-size:.75rem">{{ skill.get('reason','') }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="mt-3 p-3 rounded-3" style="background:#EFF6FF">
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="font-size:1.5rem; font-weight:700; color:#2563EB">
+                                    {{ skill_gap_data.get('skill_match_percentage','0') }}%
+                                </div>
+                                <div>
+                                    <div class="fw-medium small">Skill Match</div>
+                                    <div class="text-muted" style="font-size:.75rem">for {{ skill_gap_data.get('target_role','') }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Interview -->
+            <div class="tab-panel" id="panel-interview">
+                {% for level, label, color in [('easy','Easy','success'), ('medium','Medium','warning'), ('hard','Hard','danger')] %}
+                <h6 class="fw-semibold mb-3 text-{{ color }}">
+                    <i class="fas fa-circle-dot me-1"></i>{{ label }} Questions
+                </h6>
+                {% for q in interview_data.get(level, []) %}
+                <div class="q-card {{ level }}">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <div class="fw-semibold small">{{ q.get('question','') }}</div>
+                        <span class="badge bg-{{ color }}-subtle text-{{ color }} ms-2 small">{{ q.get('category','') }}</span>
+                    </div>
+                    <div class="text-muted small mt-2"><b>Answer:</b> {{ q.get('answer','') }}</div>
+                    <div class="text-muted small mt-1"><b>Tips:</b> {{ q.get('tips','') }}</div>
+                </div>
+                {% endfor %}
+                <hr class="my-3">
+                {% endfor %}
+            </div>
+
+            <!-- TAB: Roadmap -->
+            <div class="tab-panel" id="panel-roadmap">
+                {% for plan_key, plan_label in [('30_day_plan','30-Day Plan'), ('60_day_plan','60-Day Plan'), ('90_day_plan','90-Day Plan')] %}
+                {% set plan = roadmap_data.get(plan_key, {}) %}
+                {% if plan %}
+                <div class="mb-4">
+                    <h6 class="fw-semibold text-primary mb-1">{{ plan_label }}</h6>
+                    <p class="text-muted small mb-3">{{ plan.get('goal','') }}</p>
+                    <div class="row g-2">
+                    {% for week in plan.get('weeks', []) %}
+                    <div class="col-md-6">
+                        <div class="week-card">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="fw-semibold small">Week {{ week.get('week','') }}</span>
+                                <span class="text-muted" style="font-size:.72rem">{{ week.get('focus','') }}</span>
+                            </div>
+                            <div class="text-muted small mb-1">{{ week.get('milestone','') }}</div>
+                            {% for task in week.get('daily_tasks', [])[:3] %}
+                            <div class="small text-muted"><i class="fas fa-check-square text-primary me-1"></i>{{ task }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- TAB: Recommendations -->
+            <div class="tab-panel" id="panel-recommendations">
+                <div class="row g-4">
+                    <div class="col-md-7">
+                        <h6 class="fw-semibold mb-2">Career Advice</h6>
+                        <p class="text-muted">{{ recommendations_data.get('career_advice','') if recommendations_data is mapping else '' }}</p>
+                        <h6 class="fw-semibold mt-3 mb-2">Priority Actions</h6>
+                        {% for action in recommendations_data.get('priority_actions', []) %}
+                        <div class="d-flex align-items-start gap-2 mb-3 p-2 rounded" 
+                             style="background:{% if action.get('impact')=='HIGH' %}#FEF2F2{% elif action.get('impact')=='MEDIUM' %}#FFFBEB{% else %}#F0FDF4{% endif %}">
+                            <span class="badge {% if action.get('impact')=='HIGH' %}bg-danger{% elif action.get('impact')=='MEDIUM' %}bg-warning{% else %}bg-success{% endif %} mt-1" style="font-size:.65rem">
+                                {{ action.get('impact','') }}
+                            </span>
+                            <div>
+                                <div class="fw-medium small">{{ action.get('action','') }}</div>
+                                <div class="text-muted" style="font-size:.75rem">{{ action.get('details','') }}</div>
+                                <div class="text-muted" style="font-size:.72rem">
+                                    <i class="fas fa-clock me-1"></i>{{ action.get('timeframe','') }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-5">
+                        <h6 class="fw-semibold mb-2">⚡ Quick Wins This Week</h6>
+                        {% for win in recommendations_data.get('quick_wins', []) %}
+                        <div class="small mb-2 p-2 rounded" style="background:#F0FDF4">
+                            <i class="fas fa-bolt text-warning me-2"></i>{{ win }}
+                        </div>
+                        {% endfor %}
+                        <h6 class="fw-semibold mt-3 mb-2">Portfolio Suggestions</h6>
+                        {% for s in recommendations_data.get('portfolio_suggestions', []) %}
+                        <div class="small mb-1"><i class="fas fa-folder-plus text-primary me-2"></i>{{ s }}</div>
+                        {% endfor %}
+                        <h6 class="fw-semibold mt-3 mb-2">Resume Improvements</h6>
+                        {% for s in recommendations_data.get('resume_improvements', []) %}
+                        <div class="small mb-1"><i class="fas fa-pen text-secondary me-2"></i>{{ s }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: ATS Tips -->
+            <div class="tab-panel" id="panel-ats">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <h6 class="fw-semibold mb-2">ATS Optimization Tips</h6>
+                        {% for tip in ats_data.get('ats_tips', []) %}
+                        <div class="d-flex gap-2 mb-2 p-2 rounded" style="background:#EFF6FF">
+                            <i class="fas fa-robot text-primary mt-1 small"></i>
+                            <span class="small">{{ tip }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-semibold mb-2 text-success">✅ Keywords Found</h6>
+                        <div class="d-flex flex-wrap gap-1 mb-3">
+                        {% for kw in ats_data.get('keyword_analysis',{}).get('found_keywords',[]) %}
+                            <span class="skill-tag-found">{{ kw }}</span>
+                        {% endfor %}
+                        </div>
+                        <h6 class="fw-semibold mb-2 text-danger">❌ Keywords Missing</h6>
+                        <div class="d-flex flex-wrap gap-1">
+                        {% for kw in ats_data.get('keyword_analysis',{}).get('missing_keywords',[]) %}
+                            <span class="skill-tag-miss">{{ kw }}</span>
+                        {% endfor %}
+                        </div>
+                        <div class="mt-3 small text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            {{ ats_data.get('score_breakdown_explanation','') }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /cp-card-body -->
+    </div><!-- /cp-card -->
+
+</div>
+
+<script>
+function switchTab(id) {
+    document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    document.getElementById('panel-' + id).classList.add('active');
+}
+</script>
+{% endblock %}

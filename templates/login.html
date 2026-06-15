@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}Login – CareerPilot AI{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header text-center mb-4">
+            <a href="/" class="text-decoration-none">
+                <h2 class="fw-bold"><i class="fas fa-rocket me-2 text-primary"></i>CareerPilot<span class="text-primary">AI</span></h2>
+            </a>
+            <p class="text-muted mt-1">Sign in to your account</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} py-2 small">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('auth.login') }}">
+            <div class="mb-3">
+                <label class="form-label fw-medium">Email address</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent border-end-0">
+                        <i class="fas fa-envelope text-muted"></i>
+                    </span>
+                    <input type="email" name="email" class="form-control border-start-0 ps-0" 
+                           placeholder="you@example.com" required autofocus>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-medium">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent border-end-0">
+                        <i class="fas fa-lock text-muted"></i>
+                    </span>
+                    <input type="password" name="password" id="passwordInput" 
+                           class="form-control border-start-0 ps-0" placeholder="••••••••" required>
+                    <button class="input-group-text bg-transparent border-start-0" type="button"
+                            onclick="togglePassword('passwordInput', this)">
+                        <i class="fas fa-eye text-muted"></i>
+                    </button>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                <i class="fas fa-sign-in-alt me-2"></i>Sign In
+            </button>
+        </form>
+
+        <hr class="my-4">
+        <p class="text-center text-muted mb-0 small">
+            Don't have an account? 
+            <a href="{{ url_for('auth.register') }}" class="text-primary fw-semibold">Create one free</a>
+        </p>
+    </div>
+</div>
+
+<script>
+function togglePassword(id, btn) {
+    const input = document.getElementById(id);
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fas fa-eye-slash text-muted';
+    } else {
+        input.type = 'password';
+        icon.className = 'fas fa-eye text-muted';
+    }
+}
+</script>
+{% endblock %}

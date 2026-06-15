@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}My Resumes – CareerPilot AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="fas fa-file-alt text-primary me-2"></i>My Resumes</h4>
+            <p class="text-muted mb-0 small">Manage your uploaded resumes</p>
+        </div>
+        <a href="{{ url_for('resume.upload') }}" class="btn btn-primary px-4">
+            <i class="fas fa-upload me-2"></i>Upload New
+        </a>
+    </div>
+
+    {% if resumes %}
+    <div class="row g-3">
+        {% for resume in resumes %}
+        <div class="col-md-6 col-xl-4">
+            <div class="cp-card h-100">
+                <div class="cp-card-body">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="file-icon-wrap">
+                            {% if resume.file_type == '.pdf' %}
+                            <i class="fas fa-file-pdf text-danger" style="font-size:2rem"></i>
+                            {% else %}
+                            <i class="fas fa-file-word text-primary" style="font-size:2rem"></i>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-semibold small text-truncate">{{ resume.original_filename }}</div>
+                            <div class="text-muted" style="font-size:.75rem">
+                                {{ resume.file_type|upper }} · {{ resume.upload_date[:10] if resume.upload_date else '' }}
+                            </div>
+                            {% if resume.last_score %}
+                            <span class="badge mt-1 {% if resume.last_score >= 75 %}bg-success{% elif resume.last_score >= 50 %}bg-warning{% else %}bg-danger{% endif %}">
+                                Last ATS: {{ resume.last_score|int }}/100
+                            </span>
+                            {% endif %}
+                        </div>
+                        <span class="badge bg-primary-soft text-primary small">{{ resume.report_count }} reports</span>
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                        <a href="{{ url_for('analysis.analyze', resume_id=resume.id) }}"
+                           class="btn btn-sm btn-primary flex-grow-1">
+                            <i class="fas fa-brain me-1"></i>Analyze
+                        </a>
+                        <form method="POST" action="{{ url_for('resume.delete_resume', resume_id=resume.id) }}"
+                              onsubmit="return confirm('Delete this resume and all its reports?')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5 mt-4">
+        <i class="fas fa-file-alt text-muted mb-4" style="font-size:4rem; opacity:.2"></i>
+        <h5 class="text-muted">No resumes uploaded yet</h5>
+        <a href="{{ url_for('resume.upload') }}" class="btn btn-primary mt-2">
+            <i class="fas fa-upload me-2"></i>Upload Your First Resume
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}My Reports – CareerPilot AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="fas fa-chart-bar text-primary me-2"></i>My Reports</h4>
+            <p class="text-muted mb-0 small">All your resume analysis reports</p>
+        </div>
+        <a href="{{ url_for('resume.upload') }}" class="btn btn-primary px-4">
+            <i class="fas fa-plus me-2"></i>New Analysis
+        </a>
+    </div>
+
+    {% if reports %}
+    <div class="row g-3">
+        {% for report in reports %}
+        <div class="col-md-6 col-xl-4">
+            <div class="cp-card report-card h-100">
+                <div class="cp-card-body">
+                    <div class="d-flex align-items-start justify-content-between mb-3">
+                        <div class="flex-grow-1 me-2">
+                            <div class="fw-semibold small text-truncate">{{ report.original_filename }}</div>
+                            <div class="text-muted" style="font-size:.75rem">{{ report.created_at[:16] if report.created_at else '' }}</div>
+                        </div>
+                        <span class="badge bg-primary-soft text-primary small">{{ report.target_role }}</span>
+                    </div>
+
+                    <!-- ATS Score -->
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="report-score-circle 
+                            {% if report.ats_score >= 75 %}score-good
+                            {% elif report.ats_score >= 50 %}score-fair
+                            {% else %}score-poor{% endif %}">
+                            {{ report.ats_score|int }}
+                        </div>
+                        <div>
+                            <div class="fw-semibold small">ATS Score</div>
+                            <div class="text-muted" style="font-size:.75rem">
+                                {% if report.ats_score >= 80 %}Excellent{% elif report.ats_score >= 65 %}Good{% elif report.ats_score >= 50 %}Fair{% else %}Needs Work{% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Category mini bars -->
+                    <div class="mb-3">
+                        {% for label, val in [
+                            ('Skills', report.skills_score),
+                            ('Education', report.education_score),
+                            ('Experience', report.experience_score)
+                        ] %}
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="text-muted" style="font-size:.72rem; width:60px">{{ label }}</span>
+                            <div class="progress flex-grow-1" style="height:5px">
+                                <div class="progress-bar {% if val >= 70 %}bg-success{% elif val >= 45 %}bg-warning{% else %}bg-danger{% endif %}"
+                                     style="width:{{ val }}%"></div>
+                            </div>
+                            <span style="font-size:.72rem; width:28px; text-align:right">{{ val|int }}%</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('analysis.view_report', report_id=report.id) }}"
+                           class="btn btn-sm btn-outline-primary flex-grow-1">
+                            <i class="fas fa-eye me-1"></i>View Report
+                        </a>
+                        <a href="{{ url_for('analysis.download_report', report_id=report.id) }}"
+                           class="btn btn-sm btn-outline-success" title="Download PDF">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="text-center py-5 mt-4">
+        <i class="fas fa-chart-bar text-muted mb-4" style="font-size:4rem; opacity:.2"></i>
+        <h5 class="text-muted">No reports yet</h5>
+        <p class="text-muted small">Upload a resume and run an analysis to see your results here.</p>
+        <a href="{{ url_for('resume.upload') }}" class="btn btn-primary mt-2">
+            <i class="fas fa-upload me-2"></i>Upload Your First Resume
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

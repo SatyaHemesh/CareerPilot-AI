@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard – CareerPilot AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+
+    <!-- Page Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h4 class="mb-0 fw-bold">Welcome back, <span class="text-primary">{{ session.get('username') }}</span> 👋</h4>
+            <p class="text-muted mb-0 small mt-1">Here's your career analytics overview</p>
+        </div>
+        <a href="{{ url_for('resume.upload') }}" class="btn btn-primary px-4">
+            <i class="fas fa-plus me-2"></i>New Analysis
+        </a>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-card-icon" style="background:#2563EB22; color:#2563EB">
+                    <i class="fas fa-file-alt"></i>
+                </div>
+                <div>
+                    <div class="stat-card-num">{{ resume_count }}</div>
+                    <div class="stat-card-label">Resumes Uploaded</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-card-icon" style="background:#10B98122; color:#10B981">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <div>
+                    <div class="stat-card-num">{{ report_count }}</div>
+                    <div class="stat-card-label">Analyses Done</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-card-icon" style="background:#F59E0B22; color:#F59E0B">
+                    <i class="fas fa-star"></i>
+                </div>
+                <div>
+                    <div class="stat-card-num">{{ avg_score }}<span class="fs-6 fw-normal">/100</span></div>
+                    <div class="stat-card-label">Avg ATS Score</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="stat-card">
+                <div class="stat-card-icon" style="background:#8B5CF622; color:#8B5CF6">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div>
+                    <div class="stat-card-num">
+                        {% if avg_score >= 80 %}A{% elif avg_score >= 60 %}B{% elif avg_score >= 40 %}C{% else %}D{% endif %}
+                    </div>
+                    <div class="stat-card-label">Overall Grade</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Recent Reports -->
+        <div class="col-lg-8">
+            <div class="cp-card h-100">
+                <div class="cp-card-header">
+                    <h6 class="mb-0 fw-semibold"><i class="fas fa-history me-2 text-primary"></i>Recent Reports</h6>
+                    <a href="{{ url_for('analysis.my_reports') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="cp-card-body">
+                    {% if recent_reports %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="small fw-semibold">Resume</th>
+                                    <th class="small fw-semibold">Target Role</th>
+                                    <th class="small fw-semibold">ATS Score</th>
+                                    <th class="small fw-semibold">Date</th>
+                                    <th class="small fw-semibold">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for report in recent_reports %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="fas fa-file-pdf text-danger"></i>
+                                        <span class="small fw-medium text-truncate" style="max-width:150px">
+                                            {{ report.original_filename }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td><span class="badge bg-primary-soft text-primary">{{ report.target_role }}</span></td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="mini-score-bar">
+                                            <div class="mini-score-fill 
+                                                {% if report.ats_score >= 75 %}bg-success
+                                                {% elif report.ats_score >= 50 %}bg-warning
+                                                {% else %}bg-danger{% endif %}"
+                                                style="width:{{ report.ats_score }}%"></div>
+                                        </div>
+                                        <span class="fw-bold 
+                                            {% if report.ats_score >= 75 %}text-success
+                                            {% elif report.ats_score >= 50 %}text-warning
+                                            {% else %}text-danger{% endif %}">
+                                            {{ report.ats_score|int }}/100
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="text-muted small">{{ report.created_at[:10] if report.created_at else '' }}</td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="{{ url_for('analysis.view_report', report_id=report.id) }}" 
+                                           class="btn btn-xs btn-outline-primary" title="View">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('analysis.download_report', report_id=report.id) }}" 
+                                           class="btn btn-xs btn-outline-success" title="Download PDF">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-file-chart-bar text-muted mb-3" style="font-size:3rem; opacity:.3"></i>
+                        <p class="text-muted">No analyses yet. Upload a resume to get started.</p>
+                        <a href="{{ url_for('resume.upload') }}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-upload me-1"></i>Upload Resume
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-lg-4">
+            <div class="cp-card mb-4">
+                <div class="cp-card-header">
+                    <h6 class="mb-0 fw-semibold"><i class="fas fa-bolt me-2 text-warning"></i>Quick Actions</h6>
+                </div>
+                <div class="cp-card-body p-0">
+                    <div class="quick-action-list">
+                        <a href="{{ url_for('resume.upload') }}" class="quick-action-item">
+                            <div class="qa-icon bg-primary-soft text-primary"><i class="fas fa-upload"></i></div>
+                            <div>
+                                <div class="fw-medium small">Upload New Resume</div>
+                                <div class="text-muted" style="font-size:.75rem">PDF or DOCX</div>
+                            </div>
+                            <i class="fas fa-chevron-right ms-auto text-muted small"></i>
+                        </a>
+                        <a href="{{ url_for('analysis.my_reports') }}" class="quick-action-item">
+                            <div class="qa-icon bg-success-soft text-success"><i class="fas fa-chart-line"></i></div>
+                            <div>
+                                <div class="fw-medium small">View All Reports</div>
+                                <div class="text-muted" style="font-size:.75rem">{{ report_count }} total</div>
+                            </div>
+                            <i class="fas fa-chevron-right ms-auto text-muted small"></i>
+                        </a>
+                        {% if session.get('is_admin') %}
+                        <a href="{{ url_for('admin.dashboard') }}" class="quick-action-item">
+                            <div class="qa-icon bg-warning-soft text-warning"><i class="fas fa-shield-alt"></i></div>
+                            <div>
+                                <div class="fw-medium small">Admin Panel</div>
+                                <div class="text-muted" style="font-size:.75rem">Manage users</div>
+                            </div>
+                            <i class="fas fa-chevron-right ms-auto text-muted small"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="cp-card">
+                <div class="cp-card-header">
+                    <h6 class="mb-0 fw-semibold"><i class="fas fa-lightbulb me-2 text-warning"></i>Pro Tips</h6>
+                </div>
+                <div class="cp-card-body">
+                    <div class="tip-item mb-2">
+                        <i class="fas fa-check-circle text-success me-2 small"></i>
+                        <span class="small">Use keywords from job descriptions in your resume</span>
+                    </div>
+                    <div class="tip-item mb-2">
+                        <i class="fas fa-check-circle text-success me-2 small"></i>
+                        <span class="small">Quantify achievements with numbers and percentages</span>
+                    </div>
+                    <div class="tip-item mb-2">
+                        <i class="fas fa-check-circle text-success me-2 small"></i>
+                        <span class="small">Match your skills section to the target role</span>
+                    </div>
+                    <div class="tip-item">
+                        <i class="fas fa-check-circle text-success me-2 small"></i>
+                        <span class="small">Keep formatting clean and ATS-friendly (no tables)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

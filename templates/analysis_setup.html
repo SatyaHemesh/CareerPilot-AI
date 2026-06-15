@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Choose Analysis Options – CareerPilot AI{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:600px">
+    <div class="mb-4">
+        <h4 class="fw-bold mb-1">Choose Your Target Role</h4>
+        <p class="text-muted">
+            <i class="fas fa-file-pdf text-danger me-2"></i>
+            {{ resume.original_filename }} · Ready for analysis
+        </p>
+    </div>
+
+    <div class="cp-card">
+        <div class="cp-card-body">
+            <form method="POST" action="{{ url_for('analysis.analyze', resume_id=resume.id) }}" id="analysisForm">
+                <label class="form-label fw-semibold mb-3">Select Target Role</label>
+                <div class="role-grid mb-4">
+                    {% set roles = [
+                        ('Full Stack Developer', 'fa-layer-group', '#2563EB'),
+                        ('Backend Developer', 'fa-server', '#0F172A'),
+                        ('Frontend Developer', 'fa-palette', '#38BDF8'),
+                        ('Software Engineer', 'fa-code', '#10B981'),
+                        ('Data Scientist', 'fa-chart-scatter', '#F59E0B'),
+                        ('AI/ML Engineer', 'fa-robot', '#8B5CF6'),
+                    ] %}
+                    {% for role, icon, color in roles %}
+                    <label class="role-option">
+                        <input type="radio" name="target_role" value="{{ role }}" 
+                               {% if loop.first %}checked{% endif %} class="role-radio">
+                        <div class="role-card">
+                            <i class="fas {{ icon }}" style="color:{{ color }}; font-size:1.4rem"></i>
+                            <span class="small fw-medium mt-1">{{ role }}</span>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+
+                <div class="what-youll-get p-3 rounded-3 mb-4" style="background:#f1f5f9">
+                    <p class="fw-semibold small mb-2"><i class="fas fa-sparkles text-primary me-2"></i>You'll receive:</p>
+                    <div class="row g-1">
+                        {% for item in ['ATS Score Analysis', 'Resume Breakdown', 'Skill Gap Report', 'Interview Questions', '90-Day Roadmap', 'AI Recommendations'] %}
+                        <div class="col-6">
+                            <div class="small text-muted">
+                                <i class="fas fa-check text-success me-1"></i>{{ item }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-3 fw-semibold" id="runBtn">
+                    <i class="fas fa-brain me-2"></i>Run Full Analysis
+                </button>
+                <p class="text-center text-muted small mt-2">⏱ Takes about 30–60 seconds</p>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('analysisForm').addEventListener('submit', function(e) {
+    const btn = document.getElementById('runBtn');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analyzing with AI... please wait';
+    btn.disabled = true;
+    
+    const form = this;
+    const selectedRole = document.querySelector('input[name="target_role"]:checked').value;
+    
+    // Redirect to run_analysis route
+    e.preventDefault();
+    window.location.href = `/run-analysis/{{ resume.id }}?target_role=${encodeURIComponent(selectedRole)}`;
+});
+</script>
+{% endblock %}
